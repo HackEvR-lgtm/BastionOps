@@ -1823,13 +1823,36 @@ namespace CapabilityDenialSystem
             Console.OutputEncoding = Encoding.UTF8;
             
             Console.WriteLine("==============================================");
-            Console.WriteLine("   CAPABILITY DENIAL SYSTEM (CDS)");
+            Console.WriteLine("   CAPABILITY DENIAL SYSTEM (CDS) v2.1");
             Console.WriteLine("   Advanced Host-Based Protection");
             Console.WriteLine("==============================================");
             Console.WriteLine();
 
             try
             {
+                // Check for tray mode argument
+                if (args.Contains("--tray") || args.Contains("-t"))
+                {
+                    // Run with System Tray Dashboard in interactive mode
+                    Application.EnableVisualStyles();
+                    Application.SetCompatibleTextRenderingDefault(false);
+                    
+                    using (var trayApp = new CdsTrayApp())
+                    {
+                        // Start the daemon in a background thread
+                        Thread daemonThread = new Thread(() =>
+                        {
+                            CdsDaemon daemon = new CdsDaemon();
+                            daemon.RunAsService();
+                        });
+                        daemonThread.IsBackground = true;
+                        daemonThread.Start();
+                        
+                        Application.Run(trayApp);
+                    }
+                    return;
+                }
+
                 CdsDaemon daemon = new CdsDaemon();
 
                 if (args.Contains("--service") || args.Contains("-s"))
