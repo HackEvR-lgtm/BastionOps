@@ -1648,6 +1648,19 @@ namespace CapabilityDenialSystem
 
             try
             {
+                // Register PID with Kernel Driver (Phase 2: IOCTL Communication)
+                int currentPid = System.Diagnostics.Process.GetCurrentProcess().Id;
+                bool kernelRegistered = KernelDriverCommunicator.RegisterCdsPid(currentPid);
+                
+                if (kernelRegistered)
+                {
+                    CdsLogger.Info($"Kernel-mode protection ACTIVE. PID {currentPid} registered.", "CDS");
+                }
+                else
+                {
+                    CdsLogger.Warning("Kernel driver not found. Running in User-Mode only.", "CDS");
+                }
+
                 _screenEngine.Start();
                 _keylogEngine.Start();
                 _injectionMonitor.Start();
