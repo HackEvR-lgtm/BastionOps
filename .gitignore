@@ -1,0 +1,31 @@
+```
+# Build artifacts
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.config
+
+# Dependencies
+packages/
+
+# Logs
+*.log
+
+# Environment
+.env
+*.env
+
+# Editor/IDE
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS
+.DS_Store
+Thumbs.db
+```
