@@ -732,6 +732,12 @@ namespace CapabilityDenialSystem
         {
             try
             {
+                // First check using advanced unbacked executable memory detection
+                if (DetectUnbackedExecutableMemory(proc))
+                {
+                    return true;
+                }
+
                 IntPtr hProcess = Win32Api.OpenProcess(
                     Win32Api.PROCESS_VM_READ | Win32Api.PROCESS_QUERY_INFORMATION,
                     false, (uint)proc.Id);
@@ -774,6 +780,59 @@ namespace CapabilityDenialSystem
             return false;
         }
 
+        /// <summary>
+        /// Advanced heuristic: Detects unbacked executable memory regions (shellcode injection indicator)
+        /// </summary>
+        private bool DetectUnbackedExecutableMemory(Process proc)
+        {
+            try
+            {
+                IntPtr hProcess = Win32Api.OpenProcess(
+                    Win32Api.PROCESS_QUERY_INFORMATION | Win32Api.PROCESS_VM_READ, 
+                    false, 
+                    (uint)proc.Id);
+
+                if (hProcess == IntPtr.Zero) return false;
+
+                try
+                {
+                    IntPtr baseAddress = IntPtr.Zero;
+                    Win32Api.MEMORY_BASIC_INFORMATION mbi = new Win32Api.MEMORY_BASIC_INFORMATION();
+                    int suspiciousRegionCount = 0;
+
+                    while (Win32Api.VirtualQueryEx(hProcess, baseAddress, out mbi, (uint)Marshal.SizeOf<Win32Api.MEMORY_BASIC_INFORMATION>()) > 0)
+                    {
+                        // Check for MEM_PRIVATE (not backed by a file/image on disk) AND executable permissions
+                        bool isPrivate = (mbi.Type == 0x20000); // MEM_PRIVATE
+                        bool isExecutable = (mbi.Protect & (0x10 | 0x20 | 0x40 | 0x80)) != 0; // PAGE_EXECUTE, EXECUTE_READ, EXECUTE_READWRITE, EXECUTE_WRITECOPY
+
+                        if (isPrivate && isExecutable && mbi.RegionSize.ToInt64() >= 4096) // Ignore tiny allocations
+                        {
+                            // Heuristic filter: Allow known JIT compilers to have some private executable memory
+                            string[] jitProcesses = { "dotnet", "java", "node", "chrome", "msedge", "firefox" };
+                            if (!jitProcesses.Contains(proc.ProcessName.ToLower()))
+                            {
+                                suspiciousRegionCount++;
+                                CdsLogger.Audit($"UNBACKED_EXEC_MEMORY_DETECTED - PID {proc.Id} ({proc.ProcessName}): Suspicious private executable memory at 0x{mbi.BaseAddress:X}, Size: {mbi.RegionSize}", "ProcessInjectionMonitor");
+                            }
+                        }
+
+                        baseAddress = IntPtr.Add(mbi.BaseAddress, (int)mbi.RegionSize);
+                    }
+
+                    // Threshold: More than 1 suspicious unbacked executable region in a non-JIT process is a critical threat
+                    return suspiciousRegionCount > 1;
+                }
+                finally
+                {
+                    Win32Api.CloseHandle(hProcess);
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
         private bool HasSuspiciousHandles(Process proc)
         {
             try
@@ -927,6 +986,44 @@ namespace CapabilityDenialSystem
         {
             _networkMonitorTimer?.Dispose();
             CdsLogger.Info("Network Protection Engine stopped", "NetworkProtection");
+        }
+
+        /// <summary>
+        /// EMERGENCY: Instantly isolates the machine from all network traffic.
+        /// </summary>
+        public static void TriggerPanicMode()
+        {
+            try
+            {
+                CdsLogger.Audit("NetworkProtectionEngine", "CRITICAL_PANIC_MODE_ACTIVATED", 
+                    "EMERGENCY: Initiating total network isolation. Blocking all inbound/outbound traffic.");
+
+                string panicScript = @"
+                    Set-NetFirewallProfile -Profile Domain,Public,Private -DefaultInboundAction Block -DefaultOutboundAction Block -Enabled True;
+                    Get-NetFirewallRule | Where-Object { $_.DisplayName -notmatch '^CDS_' } | Disable-NetFirewallRule;
+                ";
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-ExecutionPolicy Bypass -NoProfile -Command \"{panicScript}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using (var proc = Process.Start(psi))
+                {
+                    proc?.WaitForExit(10000);
+                }
+                
+                CdsLogger.Audit("NetworkProtectionEngine", "PANIC_MODE_SUCCESS", "Network isolation successfully enforced.");
+            }
+            catch (Exception ex)
+            {
+                CdsLogger.Error($"Failed to execute panic mode: {ex.Message}", "NetworkProtectionEngine");
+            }
         }
 
         public void ApplyFirewallRules()
