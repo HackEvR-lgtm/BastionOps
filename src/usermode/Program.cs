@@ -1816,12 +1816,86 @@ namespace CapabilityDenialSystem
 
     #endregion
 
+    #region Security Enforcer - Process Mitigations & Anti-Debugging
+
+    public static class SecurityEnforcer
+    {
+        [DllImport("kernel32.dll")]
+        private static extern bool IsDebuggerPresent();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CheckRemoteDebuggerPresent(IntPtr hProcess, ref bool isDebuggerPresent);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetProcessMitigationPolicy(int mitigationPolicy, ref PROCESS_MITIGATION_DYNAMIC_CODE_POLICY policy, int size);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct PROCESS_MITIGATION_DYNAMIC_CODE_POLICY 
+        {
+            public uint Flags;
+        }
+
+        public static void EnforceSecurity()
+        {
+            try
+            {
+                // 1. Anti-Debug: Native API Check
+                if (IsDebuggerPresent()) 
+                {
+                    CdsLogger.Audit("CRITICAL: Native debugger detected (IsDebuggerPresent). Terminating immediately.", "SecurityEnforcer");
+                    Environment.Exit(1);
+                }
+
+                bool isRemoteDebugged = false;
+                CheckRemoteDebuggerPresent(Process.GetCurrentProcess().Handle, ref isRemoteDebugged);
+                if (isRemoteDebugged)
+                {
+                    CdsLogger.Audit("CRITICAL: Remote debugger attached. Terminating immediately.", "SecurityEnforcer");
+                    Environment.Exit(1);
+                }
+
+                // 2. Anti-Analysis: Suspicious Process Detection
+                string[] badProcesses = { "x64dbg", "ollydbg", "cheatengine", "cheatengine-x86_64", "procmon", "procmon64", "wireshark", "fiddler", "processhacker" };
+                var runningProcesses = Process.GetProcesses();
+                foreach (var p in runningProcesses) 
+                {
+                    try 
+                    {
+                        if (badProcesses.Contains(p.ProcessName.ToLower())) 
+                        {
+                            CdsLogger.Audit($"CRITICAL: Analysis tool detected ({p.ProcessName}). Triggering Network Panic and Terminating.", "SecurityEnforcer");
+                            NetworkProtectionEngine.TriggerPanicMode();
+                            Environment.Exit(1);
+                        }
+                    }
+                    catch { /* Ignore access denied on system processes */ }
+                }
+
+                // 3. Process Hardening: Block Dynamic Code Generation (Mitigates some shellcode injection)
+                // Flag 1 = ProhibitDynamicCode
+                var policy = new PROCESS_MITIGATION_DYNAMIC_CODE_POLICY { Flags = 1 }; 
+                SetProcessMitigationPolicy(2, ref policy, Marshal.SizeOf(policy)); // 2 = ProcessDynamicCodePolicy
+
+                CdsLogger.Audit("Process mitigations and anti-debug checks applied successfully.", "SecurityEnforcer");
+            }
+            catch (Exception ex)
+            {
+                CdsLogger.Audit($"Warning: Security enforcement partially failed: {ex.Message}", "SecurityEnforcer");
+            }
+        }
+    }
+
+    #endregion
+
     #region Program Entry Point
 
     class Program
     {
         static void Main(string[] args)
         {
+            // Enforce security before doing anything else
+            SecurityEnforcer.EnforceSecurity();
+
             Console.OutputEncoding = Encoding.UTF8;
             
             Console.WriteLine("==============================================");
