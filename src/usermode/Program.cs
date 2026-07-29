@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using ThreadingTimer = System.Threading.Timer;
 using Microsoft.Win32;
 
 namespace CapabilityDenialSystem
@@ -316,7 +317,7 @@ namespace CapabilityDenialSystem
     {
         private CdsConfiguration _config;
         private HashSet<uint> _monitoredProcesses = new HashSet<uint>();
-        private Timer _monitorTimer;
+        private ThreadingTimer _monitorTimer;
 
         public AntiScreenCaptureEngine(CdsConfiguration config)
         {
@@ -334,7 +335,7 @@ namespace CapabilityDenialSystem
             CdsLogger.Info("Starting Anti-Screen-Capture Engine", "AntiScreenCapture");
             
             int interval = _config.protection_settings.scan_interval_ms;
-            _monitorTimer = new Timer(MonitorScreenCaptureAttempts, null, interval, interval);
+            _monitorTimer = new ThreadingTimer(MonitorScreenCaptureAttempts, null, interval, interval);
         }
 
         public void Stop()
@@ -478,7 +479,7 @@ namespace CapabilityDenialSystem
     {
         private CdsConfiguration _config;
         private List<IntPtr> _authorizedHooks = new List<IntPtr>();
-        private Timer _hookMonitorTimer;
+        private ThreadingTimer _hookMonitorTimer;
         private IntPtr _ownHook = IntPtr.Zero;
 
         public AntiKeyloggingEngine(CdsConfiguration config)
@@ -497,7 +498,7 @@ namespace CapabilityDenialSystem
             CdsLogger.Info("Starting Anti-Keylogging Engine", "AntiKeylog");
             
             int interval = _config.protection_settings.scan_interval_ms;
-            _hookMonitorTimer = new Timer(MonitorKeyboardHooks, null, interval, interval);
+            _hookMonitorTimer = new ThreadingTimer(MonitorKeyboardHooks, null, interval, interval);
         }
 
         public void Stop()
@@ -649,7 +650,7 @@ namespace CapabilityDenialSystem
     public class ProcessInjectionMonitor
     {
         private CdsConfiguration _config;
-        private Timer _injectionMonitorTimer;
+        private ThreadingTimer _injectionMonitorTimer;
         private Dictionary<int, ProcessSnapshot> _processSnapshots = new Dictionary<int, ProcessSnapshot>();
 
         public ProcessInjectionMonitor(CdsConfiguration config)
@@ -668,7 +669,7 @@ namespace CapabilityDenialSystem
             CdsLogger.Info("Starting Process Injection Monitor", "ProcessInjection");
             
             int interval = _config.protection_settings.scan_interval_ms;
-            _injectionMonitorTimer = new Timer(MonitorProcessInjection, null, interval, interval);
+            _injectionMonitorTimer = new ThreadingTimer(MonitorProcessInjection, null, interval, interval);
         }
 
         public void Stop()
@@ -961,7 +962,7 @@ namespace CapabilityDenialSystem
     public class NetworkProtectionEngine
     {
         private CdsConfiguration _config;
-        private Timer _networkMonitorTimer;
+        private ThreadingTimer _networkMonitorTimer;
 
         public NetworkProtectionEngine(CdsConfiguration config)
         {
@@ -981,7 +982,7 @@ namespace CapabilityDenialSystem
             ApplyFirewallRules();
             
             int interval = _config.protection_settings.scan_interval_ms * 5;
-            _networkMonitorTimer = new Timer(MonitorNetworkActivity, null, interval, interval);
+            _networkMonitorTimer = new ThreadingTimer(MonitorNetworkActivity, null, interval, interval);
         }
 
         public void Stop()
@@ -1224,7 +1225,7 @@ namespace CapabilityDenialSystem
     public class PersistenceMonitor
     {
         private CdsConfiguration _config;
-        private Timer _persistenceMonitorTimer;
+        private ThreadingTimer _persistenceMonitorTimer;
         private Dictionary<string, string> _registrySnapshot = new Dictionary<string, string>();
         private HashSet<string> _taskSnapshot = new HashSet<string>();
 
@@ -1246,7 +1247,7 @@ namespace CapabilityDenialSystem
             InitializeSnapshots();
             
             int interval = _config.protection_settings.scan_interval_ms * 2;
-            _persistenceMonitorTimer = new Timer(MonitorPersistence, null, interval, interval);
+            _persistenceMonitorTimer = new ThreadingTimer(MonitorPersistence, null, interval, interval);
         }
 
         public void Stop()
