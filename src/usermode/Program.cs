@@ -2000,6 +2000,84 @@ namespace CapabilityDenialSystem
 
     #endregion
 
+    #region Advanced ETW/WMI Injection Monitoring
+
+    public static class AdvancedInjectionMonitor
+    {
+        private static ManagementEventWatcher _moduleLoadWatcher;
+
+        public static void StartMonitoring()
+        {
+            try
+            {
+                // Listen to Kernel ETW Module Load events via WMI
+                var query = new WqlEventQuery("SELECT * FROM Win32_ModuleLoadTrace");
+                _moduleLoadWatcher = new ManagementEventWatcher(query);
+                _moduleLoadWatcher.EventArrived += OnModuleLoaded;
+                _moduleLoadWatcher.Start();
+
+                CdsLogger.Audit("AdvancedInjectionMonitor", "Kernel-level Module Load monitoring (ETW/WMI) started.");
+            }
+            catch (Exception ex)
+            {
+                CdsLogger.Audit("AdvancedInjectionMonitor", $"Warning: ETW Module monitoring failed to start: {ex.Message}");
+            }
+        }
+
+        private static void OnModuleLoaded(object sender, EventArrivedEventArgs e)
+        {
+            try
+            {
+                // Extract event data
+                string processName = e.NewEvent["ProcessName"]?.ToString()?.ToLower() ?? "";
+                string fileName = e.NewEvent["FileName"]?.ToString()?.ToLower() ?? "";
+
+                if (string.IsNullOrEmpty(processName) || string.IsNullOrEmpty(fileName)) return;
+
+                // Define critical system processes we want to protect from injection
+                string[] criticalProcesses = { "svchost.exe", "lsass.exe", "explorer.exe", "winlogon.exe", "services.exe" };
+                
+                if (criticalProcesses.Contains(processName))
+                {
+                    // Define trusted system directories
+                    bool isTrustedPath = fileName.StartsWith(@"c:\windows\system32") || 
+                                         fileName.StartsWith(@"c:\windows\syswow64") ||
+                                         fileName.StartsWith(@"c:\windows\winsxs");
+
+                    // Define highly suspicious directories (common malware drop zones)
+                    bool isSuspiciousPath = fileName.Contains(@"\appdata\") || 
+                                            fileName.Contains(@"\temp\") || 
+                                            fileName.Contains(@"\downloads\");
+
+                    if (!isTrustedPath && isSuspiciousPath)
+                    {
+                        CdsLogger.Audit("AdvancedInjectionMonitor", $"CRITICAL: Suspicious module load detected! Process: {processName}, Module: {fileName}");
+                        
+                        // High confidence threat: Trigger Panic Mode immediately
+                        try 
+                        {
+                            NetworkProtectionEngine.TriggerPanicMode();
+                        } 
+                        catch { }
+                        
+                        Environment.Exit(1);
+                    }
+                    else if (!isTrustedPath)
+                    {
+                        // Medium confidence: Log it for forensic analysis
+                        CdsLogger.Audit("AdvancedInjectionMonitor", $"WARNING: Untrusted module loaded in critical process. Process: {processName}, Module: {fileName}");
+                    }
+                }
+            }
+            catch 
+            { 
+                // Silently ignore parsing errors to prevent crashing the monitor
+            }
+        }
+    }
+
+    #endregion
+
     #region Program Entry Point
 
     class Program
@@ -2012,6 +2090,9 @@ namespace CapabilityDenialSystem
             // Initialize Configuration Protection and FIM
             ConfigurationProtector.ProtectConfiguration();
             FileIntegrityMonitor.StartMonitoring();
+            
+            // Start Advanced ETW/WMI Injection Monitoring
+            AdvancedInjectionMonitor.StartMonitoring();
 
             Console.OutputEncoding = Encoding.UTF8;
             
