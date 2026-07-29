@@ -998,8 +998,7 @@ namespace CapabilityDenialSystem
         {
             try
             {
-                CdsLogger.Audit("NetworkProtectionEngine", "CRITICAL_PANIC_MODE_ACTIVATED", 
-                    "EMERGENCY: Initiating total network isolation. Blocking all inbound/outbound traffic.");
+                CdsLogger.Audit("CRITICAL_PANIC_MODE_ACTIVATED - EMERGENCY: Initiating total network isolation. Blocking all inbound/outbound traffic.", "NetworkProtectionEngine");
 
                 string panicScript = @"
                     Set-NetFirewallProfile -Profile Domain,Public,Private -DefaultInboundAction Block -DefaultOutboundAction Block -Enabled True;
@@ -1021,7 +1020,7 @@ namespace CapabilityDenialSystem
                     proc?.WaitForExit(10000);
                 }
                 
-                CdsLogger.Audit("NetworkProtectionEngine", "PANIC_MODE_SUCCESS", "Network isolation successfully enforced.");
+                CdsLogger.Audit("PANIC_MODE_SUCCESS - Network isolation successfully enforced.", "NetworkProtectionEngine");
             }
             catch (Exception ex)
             {
