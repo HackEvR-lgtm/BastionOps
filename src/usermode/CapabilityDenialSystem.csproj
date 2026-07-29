@@ -2,17 +2,9 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <PlatformTarget>x64</PlatformTarget>
     <UseWindowsForms>true</UseWindowsForms>
+    <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <AssemblyName>CapabilityDenialSystem</AssemblyName>
-    <RootNamespace>CapabilityDenialSystem</RootNamespace>
-    <Version>2.1.0</Version>
-    <Authors>CDS Security Team</Authors>
-    <Description>Capability Denial System - Advanced Host-Based Protection Against APTs and RATs</Description>
-    <Copyright>Copyright 2024</Copyright>
-    <!-- Single-File Self-Contained Publishing -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
