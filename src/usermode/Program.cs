@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Management;
@@ -8,6 +9,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Windows.Forms;
 using Microsoft.Win32;
 
 namespace CapabilityDenialSystem
@@ -588,7 +590,7 @@ namespace CapabilityDenialSystem
                 foreach (System.Diagnostics.ProcessThread thread in threads)
                 {
                     if (thread.ThreadState == System.Diagnostics.ThreadState.Wait &&
-                        thread.WaitReason == System.Diagnostics.ThreadWaitReason.Event)
+                        thread.WaitReason == System.Diagnostics.ThreadWaitReason.Executive)
                     {
                         if (IsSuspiciousThread(proc, thread))
                             return true;
@@ -750,7 +752,7 @@ namespace CapabilityDenialSystem
                     IntPtr baseAddr = IntPtr.Zero;
                     Win32Api.MEMORY_BASIC_INFORMATION mbi;
 
-                    while (Win32Api.VirtualQueryEx(hProcess, baseAddr, out mbi, (uint)Marshal.SizeOf<Win32Api.MEMORY_BASIC_INFORMATION>()) > 0)
+                    while (Win32Api.VirtualQueryEx(hProcess, baseAddr, out mbi, (uint)Marshal.SizeOf<Win32Api.MEMORY_BASIC_INFORMATION>()))
                     {
                         if (mbi.Protect == Win32Api.PAGE_EXECUTE_READWRITE && mbi.RegionSize.ToInt64() > 0)
                         {
@@ -800,7 +802,7 @@ namespace CapabilityDenialSystem
                     Win32Api.MEMORY_BASIC_INFORMATION mbi = new Win32Api.MEMORY_BASIC_INFORMATION();
                     int suspiciousRegionCount = 0;
 
-                    while (Win32Api.VirtualQueryEx(hProcess, baseAddress, out mbi, (uint)Marshal.SizeOf<Win32Api.MEMORY_BASIC_INFORMATION>()) > 0)
+                    while (Win32Api.VirtualQueryEx(hProcess, baseAddress, out mbi, (uint)Marshal.SizeOf<Win32Api.MEMORY_BASIC_INFORMATION>()))
                     {
                         // Check for MEM_PRIVATE (not backed by a file/image on disk) AND executable permissions
                         bool isPrivate = (mbi.Type == 0x20000); // MEM_PRIVATE
