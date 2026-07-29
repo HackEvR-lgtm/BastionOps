@@ -1887,6 +1887,119 @@ namespace CapabilityDenialSystem
 
     #endregion
 
+    #region Configuration Protection (DPAPI)
+
+    public static class ConfigurationProtector
+    {
+        private static readonly string ConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CDS", "whitelist.json");
+
+        public static void ProtectConfiguration()
+        {
+            try
+            {
+                if (File.Exists(ConfigPath))
+                {
+                    byte[] plaintext = File.ReadAllBytes(ConfigPath);
+                    // Encrypt using LocalMachine scope (only this PC can decrypt it)
+                    byte[] encrypted = System.Security.Cryptography.ProtectedData.Protect(
+                        plaintext, 
+                        null, 
+                        System.Security.Cryptography.DataProtectionScope.LocalMachine);
+                    
+                    File.WriteAllBytes(ConfigPath + ".enc", encrypted);
+                    File.Delete(ConfigPath); // Remove plaintext version
+                    CdsLogger.Audit("Configuration encrypted and secured via DPAPI.", "ConfigurationProtector");
+                }
+            }
+            catch (Exception ex)
+            {
+                CdsLogger.Audit($"Warning: Configuration protection failed: {ex.Message}", "ConfigurationProtector");
+            }
+        }
+
+        public static string LoadProtectedConfiguration()
+        {
+            try
+            {
+                string encPath = ConfigPath + ".enc";
+                if (File.Exists(encPath))
+                {
+                    byte[] encrypted = File.ReadAllBytes(encPath);
+                    byte[] plaintext = System.Security.Cryptography.ProtectedData.Unprotect(
+                        encrypted, 
+                        null, 
+                        System.Security.Cryptography.DataProtectionScope.LocalMachine);
+                    return Encoding.UTF8.GetString(plaintext);
+                }
+                else if (File.Exists(ConfigPath))
+                {
+                    // Fallback for first run before encryption
+                    return File.ReadAllText(ConfigPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                CdsLogger.Audit($"CRITICAL: Failed to load protected config: {ex.Message}", "ConfigurationProtector");
+            }
+            return null;
+        }
+    }
+
+    #endregion
+
+    #region File Integrity Monitoring (FIM)
+
+    public static class FileIntegrityMonitor
+    {
+        private static FileSystemWatcher _watcher;
+
+        public static void StartMonitoring()
+        {
+            try
+            {
+                string cdsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CDS");
+                if (!Directory.Exists(cdsDir)) Directory.CreateDirectory(cdsDir);
+
+                _watcher = new FileSystemWatcher(cdsDir)
+                {
+                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
+                    IncludeSubdirectories = true,
+                    EnableRaisingEvents = true
+                };
+
+                _watcher.Changed += OnFileSystemChanged;
+                _watcher.Created += OnFileSystemChanged;
+                _watcher.Deleted += OnFileSystemChanged;
+                _watcher.Renamed += OnFileSystemChanged;
+
+                CdsLogger.Audit("File Integrity Monitoring started on CDS directory.", "FileIntegrityMonitor");
+            }
+            catch (Exception ex)
+            {
+                CdsLogger.Audit($"Warning: FIM failed to start: {ex.Message}", "FileIntegrityMonitor");
+            }
+        }
+
+        private static void OnFileSystemChanged(object sender, FileSystemEventArgs e)
+        {
+            // Ignore our own log files to prevent loops
+            if (e.FullPath.ToLower().Contains("audit.log") || e.FullPath.ToLower().Contains("setup.log")) return;
+
+            CdsLogger.Audit($"CRITICAL: Unauthorized file system change detected in CDS directory! File: {e.Name}, ChangeType: {e.ChangeType}", "FileIntegrityMonitor");
+            
+            // Trigger immediate isolation
+            try 
+            {
+                NetworkProtectionEngine.TriggerPanicMode();
+            } 
+            catch { }
+            
+            Environment.Exit(1);
+        }
+    }
+
+    #endregion
+
     #region Program Entry Point
 
     class Program
@@ -1895,6 +2008,10 @@ namespace CapabilityDenialSystem
         {
             // Enforce security before doing anything else
             SecurityEnforcer.EnforceSecurity();
+            
+            // Initialize Configuration Protection and FIM
+            ConfigurationProtector.ProtectConfiguration();
+            FileIntegrityMonitor.StartMonitoring();
 
             Console.OutputEncoding = Encoding.UTF8;
             
