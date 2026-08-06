@@ -1,0 +1,45 @@
+{
+  "system_version": "1.0.0",
+  "security_level": "MAXIMUM_ISOLATION",
+  "logging": {
+    "enabled": true,
+    "log_path": "C:\\ProgramData\\CDS\\logs\\audit.log"
+  },
+  "whitelisted_processes": [
+    {
+      "name": "explorer.exe",
+      "path": "C:\\Windows\\explorer.exe",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "allow_screen_capture": true,
+      "allow_keyboard_hooks": true,
+      "allow_network_outbound": false
+    },
+    {
+      "name": "svchost.exe",
+      "path": "C:\\Windows\\System32\\svchost.exe",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "allow_screen_capture": false,
+      "allow_keyboard_hooks": false,
+      "allow_network_outbound": true
+    }
+  ],
+  "network_rules": {
+    "block_all_outbound_by_default": true,
+    "allowed_dns_resolvers": ["1.1.1.1", "8.8.8.8"]
+  },
+  "registry_monitor_paths": [
+    "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+    "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+    "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+    "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce"
+  ],
+  "protection_settings": {
+    "enable_screen_protection": true,
+    "enable_keylog_protection": true,
+    "enable_process_injection_protection": true,
+    "enable_network_protection": true,
+    "enable_persistence_monitor": true,
+    "scan_interval_ms": 1000,
+    "auto_terminate_threats": true
+  }
+}

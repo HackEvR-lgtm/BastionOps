@@ -1,0 +1,45 @@
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = System
+ClassGuid   = {4d36e97d-e325-11ce-bfc1-08002be10318}
+Provider    = %ManufacturerName%
+CatalogFile = CdsProtectDriver.cat
+DriverVer   = 01/01/2024,1.0.0.0
+
+[DestinationDirs]
+DefaultDestDir = 12
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+CdsProtectDriver.sys  = 1,,
+
+[Manufacturer]
+%ManufacturerName% = Standard,NTamd64
+
+[Standard.NTamd64]
+%CdsProtectDriver.DeviceDesc% = CdsProtectDriver_Device, Root\CdsProtectDriver
+
+[CdsProtectDriver_Device.NT]
+CopyFiles = Drivers_Dir
+
+[CdsProtectDriver_Device.NT.Services]
+AddService = CdsProtectDriver,%SPSVCINST_ASSOCSERVICE%, CdsProtectDriver_Service_Inst
+
+[Drivers_Dir]
+CdsProtectDriver.sys
+
+[CdsProtectDriver_Service_Inst]
+DisplayName    = %CdsProtectDriver.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\CdsProtectDriver.sys
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ManufacturerName="BastionOps"
+DiskName = "CdsProtectDriver Installation Disk"
+CdsProtectDriver.DeviceDesc = "CDS Kernel Protection Driver"
+CdsProtectDriver.SVCDESC = "CDS Kernel Protection Service"
